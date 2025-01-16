@@ -244,6 +244,7 @@ class HtmlFormatter
     // If a destination was a HYPERLINK
     if ($this->state->href) {
         $this->OpenTag('a','target="_blank" href='.$this->state->href);
+        $this->state->href=null;
     }
 
     // Push a new state onto the stack:
@@ -271,6 +272,9 @@ class HtmlFormatter
     if ($dest[1]->word == "fldinst" && count($dest)>=2 && substr($dest[2]->text,0,10)=="HYPERLINK " ) {
       $url=substr($dest[2]->text,10);
       $this->state->href=$url;
+      $c = count($dest);
+      for ($i=3;$i<$c;$i++)
+        $this->FormatEntry($dest[$i]);
     }
   }
 
@@ -411,26 +415,30 @@ class HtmlFormatter
 
   protected function Write($txt)
   {
-    // Create a new 'span' element only when a style change occurs.
-    // 1st case: style change occured
-    // 2nd case: there is no change in style but the already created 'span'
-    // element is somehow closed (ex. because of an end of paragraph)
-    if  (!$this->state->equals($this->previousState) ||
-        ($this->state->equals($this->previousState) && !$this->openedTags['span']))
-    {
-      // If applicable close previously opened 'span' tag
-      $this->CloseTag('span');
+    if ($this->state->href!==null) {
+        $this->state->href .= $txt;
+    } else {
+        // Create a new 'span' element only when a style change occurs.
+        // 1st case: style change occured
+        // 2nd case: there is no change in style but the already created 'span'
+        // element is somehow closed (ex. because of an end of paragraph)
+        if  (!$this->state->equals($this->previousState) ||
+            ($this->state->equals($this->previousState) && !$this->openedTags['span']))
+        {
+          // If applicable close previously opened 'span' tag
+          $this->CloseTag('span');
 
-      $style = $this->state->PrintStyle();
+          $style = $this->state->PrintStyle();
 
-      // Keep track of preceding style
-      $this->previousState = clone $this->state;
+          // Keep track of preceding style
+          $this->previousState = clone $this->state;
 
-      // Create style attribute and open span
-      $attr = $style ? "style=\"{$style}\"" : "";
-      $this->OpenTag('span', $attr);
+          // Create style attribute and open span
+          $attr = $style ? "style=\"{$style}\"" : "";
+          $this->OpenTag('span', $attr);
+        }
+        $this->output .= $txt;
     }
-    $this->output .= $txt;
   }
 
   protected function OpenTag($tag, $attr = '')
